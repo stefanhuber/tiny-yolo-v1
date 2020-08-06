@@ -3,20 +3,22 @@ import numpy as np
 from image import generate_image
 
 
-def generate_training_batch(image_size=(200, 200), batch_size=32):
-    while True:
-        x = []
-        y_true = []
+def get_generator(image_size=(200, 200), batch_size=32):
+    def generate_training_batch():
+        while True:
+            x = []
+            y_true = []
 
-        for i in range(batch_size):
-            image, data = generate_image(image_size)
-            # transform (x1, y1, x2, y2, class) to (class, x, y, w, h)
-            data = map(lambda item: [item[4], item[0], item[1], item[2] - item[0], item[3] - item[1]], data)
-            x.append(image / 255.)
-            y_true.append(transform_to_cell_representation(data, image_size, num_classes=3))
+            for i in range(batch_size):
+                image, data = generate_image(image_size)
+                # transform (x1, y1, x2, y2, class) to (class, x, y, w, h)
+                data = map(lambda item: [item[4], item[0], item[1], item[2] - item[0], item[3] - item[1]], data)
+                x.append(image / 255.)
+                y_true.append(transform_to_cell_representation(data, image_size, num_classes=3))
 
-        yield np.array(x), tf.constant(y_true)
+            yield np.array(x), tf.constant(y_true)
 
+    return generate_training_batch
 
 
 def transform_to_cell_representation(training_data=[], image_size=[], num_cells=7,  num_classes=20):

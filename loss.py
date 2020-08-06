@@ -11,6 +11,7 @@ class YoloLoss(tf.keras.losses.Loss):
         self.__lambda_coord = lambda_coord
         self.__lambda_noobj = lambda_noobj
 
+    @tf.autograph.experimental.do_not_convert
     def call(self, y1, y2):
         y_true = tf.reshape(y1, (-1, self.__num_cells * self.__num_cells, self.__num_classes + 5))
         y_pred = tf.clip_by_value(tf.reshape(y2, (-1, self.__num_cells * self.__num_cells, self.__num_classes + 5)), clip_value_min=0, clip_value_max=1)
@@ -42,10 +43,7 @@ class YoloLoss(tf.keras.losses.Loss):
         )
 
         loss_confidence = tf.reduce_sum(
-            tf.multiply(
-                y_true[..., 0],
-                tf.square(tf.sqrt(y_true[..., 0]) - tf.sqrt(y_pred[..., 0]))
-            )
+            tf.square(y_true[..., 0] - y_pred[..., 0])
         )
 
         loss_classes = tf.reduce_sum(
