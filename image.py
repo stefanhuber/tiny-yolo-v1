@@ -1,6 +1,38 @@
 import random
+import tensorflow as tf
 import numpy as np
 from PIL import Image, ImageDraw
+
+
+def draw_bounding_boxes_from_tensor(image_array, tensor, num_cells=7, num_classes=3):
+    bounding_boxes = []
+    data = tf.reshape(tensor, (num_cells * num_cells, num_classes + 5)).numpy()
+    image_size = image_array.shape[0]
+    cell_size = image_size / num_cells
+
+    for i in range(data.shape[0]):
+        if data[i, 0] > 0:
+            cell_x = i % num_cells
+            cell_y = i // num_cells
+            w = image_size * data[i, 3]
+            h = image_size * data[i, 4]
+            x1 = (cell_x * cell_size) + cell_size * data[i, 1] - w/2
+            y1 = (cell_y * cell_size) + cell_size * data[i, 2] - h/2
+            x2 = x1 + w
+            y2 = y1 + h
+            bounding_boxes.append([x1, y1, x2, y2])
+
+    return draw_bounding_boxes(image_array, bounding_boxes)
+
+
+def draw_bounding_boxes(image_array, bounding_boxes=[]):
+    image = Image.fromarray(image_array.astype('uint8'))
+    draw = ImageDraw.Draw(image)
+
+    for bounding_box in bounding_boxes:
+        draw.rectangle(bounding_box[0:4], outline="black", width=4)
+
+    return np.array(image)
 
 
 def generate_random_box(image_size=(200, 200), min_size=0.1, max_size=0.25, square=True):
