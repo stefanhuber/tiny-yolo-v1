@@ -6,7 +6,7 @@ from image import generate_image
 def get_generator(image_size=(200, 200), batch_size=32):
     def generate_training_batch():
         while True:
-            x = np.zeros((batch_size, image_size[1], image_size[0], 3))
+            x = np.zeros((batch_size, image_size[1], image_size[0], 3), dtype=np.float32)
             y_true = []
 
             for i in range(batch_size):

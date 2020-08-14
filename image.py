@@ -1,36 +1,51 @@
 import random
 import tensorflow as tf
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 
-def draw_bounding_boxes_from_tensor(image_array, tensor, num_cells=7, num_classes=3):
+def draw_bounding_boxes_from_tensor(image_array, tensor, num_cells=7, num_classes=3, num_boxes_per_cell=2, min_confidence_treshold=0.01, classes=["sqaure", "triangle", "circle"]):
     bounding_boxes = []
-    data = tf.reshape(tensor, (num_cells * num_cells, num_classes + 5)).numpy()
+    class_names = []
+    data = tf.reshape(tensor, (num_cells * num_cells, num_classes + (5 * num_boxes_per_cell))).numpy()
     image_size = image_array.shape[0]
     cell_size = image_size / num_cells
 
-    for i in range(data.shape[0]):
-        if data[i, 0] > 0:
-            cell_x = i % num_cells
-            cell_y = i // num_cells
-            w = image_size * data[i, 3]
-            h = image_size * data[i, 4]
-            x1 = (cell_x * cell_size) + cell_size * data[i, 1] - w/2
-            y1 = (cell_y * cell_size) + cell_size * data[i, 2] - h/2
-            x2 = x1 + w
-            y2 = y1 + h
-            bounding_boxes.append([x1, y1, x2, y2])
+    for cell in range(data.shape[0]):
+        class_index = tf.argmax(data[cell, (5 * num_boxes_per_cell):])
 
-    return draw_bounding_boxes(image_array, bounding_boxes)
+        for box in range(num_boxes_per_cell):
+            confidence_index = (5 * box) + 0
+            x_index = (5 * box) + 1
+            y_index = (5 * box) + 2
+            w_index = (5 * box) + 3
+            h_index = (5 * box) + 4
+
+            if data[cell, confidence_index] > min_confidence_treshold:
+                cell_x = cell % num_cells
+                cell_y = cell // num_cells
+                w = image_size * data[cell, w_index]
+                h = image_size * data[cell, h_index]
+                x1 = (cell_x * cell_size) + cell_size * data[cell, x_index] - w/2
+                y1 = (cell_y * cell_size) + cell_size * data[cell, y_index] - h/2
+                x2 = x1 + w
+                y2 = y1 + h
+                class_names.append(classes[class_index])
+                bounding_boxes.append([x1, y1, x2, y2])
+
+    return draw_bounding_boxes(image_array, bounding_boxes, class_names)
 
 
-def draw_bounding_boxes(image_array, bounding_boxes=[]):
+def draw_bounding_boxes(image_array, bounding_boxes=[], class_names=[]):
+    assert len(bounding_boxes) == len(class_names)
+
     image = Image.fromarray(image_array.astype('uint8'))
     draw = ImageDraw.Draw(image)
+    font = ImageFont.truetype("C:\\Windows\\Fonts\\Arial.ttf", 40)
 
-    for bounding_box in bounding_boxes:
+    for bounding_box, class_name in zip(bounding_boxes, class_names):
         draw.rectangle(bounding_box[0:4], outline="black", width=4)
+        draw.text(xy=(bounding_box[0], bounding_box[1]-40), text=class_name, font=font, fill="black")
 
     return np.array(image)
 
@@ -122,6 +137,33 @@ def generate_image(image_size=(200, 200), max_form_count=6):
             boxes.append(result)
 
     return np.array(image), boxes
+
+
+def draw_training_data(image, training_data, num_cells=7):
+    cell_width = image.size[0] / num_cells
+    cell_height = image.size[1] / num_cells
+    draw = ImageDraw.Draw(image)
+
+    # draw grid
+    for cell_x in range(1, num_cells):
+        draw.line((cell_x * cell_width, 0, cell_x * cell_width, image.size[1]), fill=(0, 0, 0))
+    for cell_y in range(1, num_cells):
+        draw.line((0, cell_y * cell_height, image.size[0], cell_y * cell_height), fill=(0, 0, 0))
+
+    for entry in training_data:
+        w = entry[2] - entry[0]
+        h = entry[3] - entry[1]
+
+        # draw center
+        center_x = entry[0] + w / 2
+        center_y = entry[1] + h / 2
+        draw.ellipse((center_x-2, center_y-2, center_x+2, center_y+2), fill=(255, 0, 0))
+
+        #draw bounding box
+        draw.rectangle((entry[0], entry[1], entry[2], entry[3]), outline=(255, 0, 0))
+
+    return image
+
 
 
 def overlap(box1, box2):
